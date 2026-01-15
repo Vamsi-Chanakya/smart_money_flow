@@ -1,0 +1,59 @@
+name: Smart Money Flow Alerts
+
+on:
+  schedule:
+    # CST (UTC-6) Times:
+    # 8:30 AM CST = 14:30 UTC
+    # 12:00 PM CST = 18:00 UTC
+    # 5:30 PM CST = 23:30 UTC
+    - cron: '30 14 * * 1-5'  # 8:30 AM Mon-Fri
+    - cron: '0 18 * * 1-5'   # 12:00 PM Mon-Fri
+    - cron: '30 23 * * 1-5'  # 5:30 PM Mon-Fri
+  workflow_dispatch:  # Allow manual trigger
+
+jobs:
+  run-alerts:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Set up Python 3.12
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.12'
+        cache: 'pip'
+        
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install -r requirements.txt
+        
+    - name: Create config file
+      run: |
+        mkdir -p config
+        cat <<EOF > config/settings.yaml
+        database:
+          url: "sqlite:///data/smartmoney.db"
+          
+        apis:
+          finnhub:
+            base_url: "https://finnhub.io/api/v1"
+            api_key: "${{ secrets.FINNHUB_KEY }}"
+            
+          financial_modeling_prep:
+            api_key: "${{ secrets.FMP_KEY }}"
+            
+        notifications:
+          telegram:
+            enabled: true
+            bot_token: "${{ secrets.TELEGRAM_BOT_TOKEN }}"
+            chat_id: "${{ secrets.TELEGRAM_CHAT_ID }}"
+            
+        alerts:
+          min_confidence_score: 0.7
+        EOF
+        
+    - name: Run Alerts
+      run: |
+        python scripts/scheduler.py --once

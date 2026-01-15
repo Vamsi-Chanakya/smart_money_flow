@@ -292,34 +292,34 @@ def main():
     # Set up scheduled jobs
     scheduler = BlockingScheduler()
 
-    # Morning collection at 7:00 AM
+    # Morning collection at 8:30 AM (before work)
     scheduler.add_job(
         scheduler_instance.run_morning_job,
-        CronTrigger(hour=7, minute=0),
+        CronTrigger(hour=8, minute=30),
         id="morning_collection",
         name="Morning data collection",
     )
 
-    # Evening analysis at 6:00 PM
+    # Midday check at 12:00 PM (lunch break)
+    scheduler.add_job(
+        scheduler_instance.run_full_collection,
+        CronTrigger(hour=12, minute=0),
+        id="midday_check",
+        name="Midday data check",
+    )
+
+    # Evening summary at 5:30 PM (after work)
     scheduler.add_job(
         scheduler_instance.run_evening_job,
-        CronTrigger(hour=18, minute=0),
+        CronTrigger(hour=17, minute=30),
         id="evening_analysis",
         name="Evening signal analysis",
     )
 
-    # Quick check every 4 hours
-    scheduler.add_job(
-        scheduler_instance.collect_congressional,
-        CronTrigger(hour="*/4"),
-        id="periodic_check",
-        name="Periodic data check",
-    )
-
     logger.info("Scheduler started. Jobs:")
-    logger.info("  - Morning collection: 7:00 AM")
-    logger.info("  - Evening analysis: 6:00 PM")
-    logger.info("  - Periodic check: Every 4 hours")
+    logger.info("  - Morning collection: 8:30 AM")
+    logger.info("  - Midday check: 12:00 PM")
+    logger.info("  - Evening summary: 5:30 PM")
     logger.info("\nPress Ctrl+C to exit")
 
     try:

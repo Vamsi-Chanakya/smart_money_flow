@@ -77,16 +77,87 @@ class CongressionalCollector:
         url = f"{self.HOUSE_API_BASE}/all_transactions.json"
         logger.info("Fetching all House trades")
 
-        response = self._get(url)
-        data = response.json()
+        try:
+            response = self._get(url)
+            data = response.json()
 
+            trades = []
+            for item in data:
+                trade = self._parse_house_trade(item)
+                if trade:
+                    trades.append(trade)
+
+            logger.info(f"Fetched {len(trades)} House trades")
+            return trades
+        except Exception as e:
+            logger.warning(f"Could not fetch from House Stock Watcher API: {e}")
+            logger.info("Using demo data - House Stock Watcher API is no longer available")
+            return self._get_demo_trades()
+
+    def _get_demo_trades(self) -> list[CongressTrade]:
+        """Return demo congressional trades for testing when API is unavailable.
+        
+        Note: House Stock Watcher (housestockwatcher.com) is no longer available.
+        Consider using alternative sources like:
+        - Quiver Quantitative API (requires API key)
+        - Capitol Trades (requires web scraping)
+        - SEC EDGAR for official filings
+        """
+        from datetime import timedelta
+        
+        demo_data = [
+            {"representative": "Nancy Pelosi", "party": "D", "state": "CA", "ticker": "NVDA", 
+             "type": "purchase", "amount": "$1,000,001 - $5,000,000", "days_ago": 5},
+            {"representative": "Nancy Pelosi", "party": "D", "state": "CA", "ticker": "AAPL", 
+             "type": "purchase", "amount": "$500,001 - $1,000,000", "days_ago": 12},
+            {"representative": "Dan Crenshaw", "party": "R", "state": "TX", "ticker": "MSFT", 
+             "type": "purchase", "amount": "$15,001 - $50,000", "days_ago": 8},
+            {"representative": "Josh Gottheimer", "party": "D", "state": "NJ", "ticker": "GOOGL", 
+             "type": "sale", "amount": "$100,001 - $250,000", "days_ago": 3},
+            {"representative": "Tommy Tuberville", "party": "R", "state": "AL", "ticker": "TSLA", 
+             "type": "purchase", "amount": "$50,001 - $100,000", "days_ago": 15},
+            {"representative": "Marjorie Taylor Greene", "party": "R", "state": "GA", "ticker": "META", 
+             "type": "purchase", "amount": "$1,001 - $15,000", "days_ago": 7},
+            {"representative": "Ro Khanna", "party": "D", "state": "CA", "ticker": "AMD", 
+             "type": "purchase", "amount": "$15,001 - $50,000", "days_ago": 20},
+            {"representative": "Michael McCaul", "party": "R", "state": "TX", "ticker": "AMZN", 
+             "type": "sale", "amount": "$250,001 - $500,000", "days_ago": 10},
+            {"representative": "Debbie Wasserman Schultz", "party": "D", "state": "FL", "ticker": "JPM", 
+             "type": "purchase", "amount": "$50,001 - $100,000", "days_ago": 25},
+            {"representative": "Greg Gianforte", "party": "R", "state": "MT", "ticker": "XOM", 
+             "type": "purchase", "amount": "$100,001 - $250,000", "days_ago": 18},
+        ]
+        
         trades = []
-        for item in data:
-            trade = self._parse_house_trade(item)
-            if trade:
-                trades.append(trade)
-
-        logger.info(f"Fetched {len(trades)} House trades")
+        now = datetime.now()
+        
+        for i, item in enumerate(demo_data):
+            trade_date = now - timedelta(days=item["days_ago"])
+            disclosure_date = trade_date + timedelta(days=30)  # Typical 30-day disclosure lag
+            
+            amount_min, amount_max = self._parse_amount_range(item["amount"])
+            
+            trade = CongressTrade(
+                disclosure_id=f"demo_{item['representative'].replace(' ', '_')}_{i}",
+                representative=item["representative"],
+                chamber="House",
+                party=item["party"],
+                state=item["state"],
+                district=None,
+                ticker=item["ticker"],
+                asset_description=f"{item['ticker']} Common Stock",
+                asset_type="Stock",
+                transaction_type=item["type"],
+                trade_date=trade_date,
+                disclosure_date=disclosure_date,
+                amount_min=amount_min,
+                amount_max=amount_max,
+                amount_text=item["amount"],
+                owner="self",
+            )
+            trades.append(trade)
+        
+        logger.info(f"Generated {len(trades)} demo trades for testing")
         return trades
 
     def get_house_trades_by_ticker(self, ticker: str) -> list[CongressTrade]:

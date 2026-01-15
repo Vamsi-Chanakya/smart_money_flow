@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, Union
 
 import yaml
 from pydantic import BaseModel
@@ -80,9 +80,10 @@ class Settings(BaseSettings):
 
     class Config:
         env_prefix = "SMF_"
+        extra = "ignore"
 
     @classmethod
-    def from_yaml(cls, path: str | Path) -> "Settings":
+    def from_yaml(cls, path: Union[str, Path]) -> "Settings":
         """Load settings from YAML file."""
         path = Path(path)
         if not path.exists():
