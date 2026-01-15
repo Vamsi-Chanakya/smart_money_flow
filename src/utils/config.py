@@ -36,6 +36,13 @@ class AlphaVantageConfig(BaseModel):
 class UnusualWhalesConfig(BaseModel):
     base_url: str = "https://api.unusualwhales.com/api"
     api_key: str = ""
+    min_premium: int = 10000 
+
+
+class MarketSentimentConfig(BaseModel):
+    sentiment_threshold_bullish: float = 0.35
+    sentiment_threshold_bearish: float = -0.35
+    news_limit: int = 10
 
 
 class ApisConfig(BaseModel):
@@ -81,6 +88,7 @@ class Settings(BaseSettings):
     database: DatabaseConfig = DatabaseConfig()
     apis: ApisConfig = ApisConfig()
     signals: SignalsConfig = SignalsConfig()
+    market_sentiment: MarketSentimentConfig = MarketSentimentConfig()
     alerts: AlertsConfig = AlertsConfig()
     notifications: NotificationsConfig = NotificationsConfig()
 

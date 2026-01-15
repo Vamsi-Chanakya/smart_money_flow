@@ -43,7 +43,7 @@ class UnusualWhalesCollector:
         endpoint = f"{self.base_url}/option_trades"
         params = {
             "limit": limit,
-            "min_premium": 10000  # Only show significant trades
+            "min_premium": settings.apis.unusual_whales.min_premium
         }
         
         if ticker:

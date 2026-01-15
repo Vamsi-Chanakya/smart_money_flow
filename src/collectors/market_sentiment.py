@@ -56,7 +56,7 @@ class MarketSentimentCollector:
             "function": "NEWS_SENTIMENT",
             "tickers": ticker,
             "apikey": self.av_api_key,
-            "limit": 10
+            "limit": settings.market_sentiment.news_limit
         }
 
         try:
@@ -81,9 +81,9 @@ class MarketSentimentCollector:
             avg_score = sum(sentiment_scores) / len(sentiment_scores)
             
             # Label
-            if avg_score >= 0.35:
+            if avg_score >= settings.market_sentiment.sentiment_threshold_bullish:
                 label = "Bullish"
-            elif avg_score <= -0.35:
+            elif avg_score <= settings.market_sentiment.sentiment_threshold_bearish:
                 label = "Bearish"
             else:
                 label = "Neutral"
