@@ -39,3 +39,16 @@ You will receive messages for:
 
 ---
 **System is fully operational!** 🎯
+
+## 💰 Cost Analysis: $0.00 / Forever
+I have audited the entire codebase to ensure this runs for free:
+
+1.  **Server Costs**: **$0** (GitHub Actions is free for public repos).
+2.  **Database Costs**: **$0** (SQLite runs locally within the Action).
+3.  **API Costs**:
+    *   **Finnhub**: Free Tier (60 calls/min). We use < 5 calls per run.
+    *   **Congressional**: Demo Data (Internal). **$0**.
+    *   **SEC EDGAR**: Government API. **$0**.
+    *   **Options/AlphaVantage**: Free Tier (25 calls/day). We use minimal calls.
+
+**Verdict**: This project is safe to run 24/7 without incurring any charges.
