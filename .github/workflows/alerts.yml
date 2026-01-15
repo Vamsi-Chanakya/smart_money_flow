@@ -29,9 +29,9 @@ jobs:
         python -m pip install --upgrade pip
         pip install -r requirements.txt
         
-    - name: Create config file
+    - name: Create directories and config
       run: |
-        mkdir -p config
+        mkdir -p config data logs
         cat <<EOF > config/settings.yaml
         database:
           url: "sqlite:///data/smartmoney.db"
