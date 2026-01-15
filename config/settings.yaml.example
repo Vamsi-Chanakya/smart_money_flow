@@ -1,0 +1,61 @@
+# Smart Money Flow Tracker Configuration
+# Copy this file to settings.yaml and fill in your credentials
+
+database:
+  # Use SQLite for development, PostgreSQL for production
+  url: "sqlite:///data/smartmoney.db"
+  # url: "postgresql://user:pass@localhost:5432/smartmoney"
+
+# API Configuration (Free tiers)
+apis:
+  sec_edgar:
+    base_url: "https://data.sec.gov"
+    user_agent: "SmartMoneyFlow your-email@example.com"  # SEC requires identification
+    rate_limit: 10  # requests per second
+
+  house_stock_watcher:
+    base_url: "https://house-stock-watcher-data.s3-us-west-2.amazonaws.com/data"
+
+  finnhub:
+    base_url: "https://finnhub.io/api/v1"
+    api_key: ""  # Get free key at finnhub.io
+
+  alpha_vantage:
+    base_url: "https://www.alphavantage.co/query"
+    api_key: ""  # Get free key at alphavantage.co
+
+# Data Collection Schedule
+schedule:
+  sec_filings: "06:00"      # Daily at 6 AM
+  congressional: "08:00"    # Daily at 8 AM
+  options_flow: "09:30"     # Market open
+  market_close: "16:00"     # Daily summary
+  analysis: "22:00"         # Generate signals
+
+# Signal Weights (for scoring)
+signals:
+  institutional_accumulation: 0.9
+  insider_cluster_buy: 0.85
+  congressional_trade: 0.6
+  options_flow: 0.5
+  cross_signal_bonus: 1.5
+
+# Alert Thresholds
+alerts:
+  min_confidence_score: 0.7
+  insider_cluster_min_count: 3
+  institutional_min_filers: 2
+  options_volume_multiplier: 5
+
+# Notification Settings
+# Get Telegram bot token from @BotFather
+# Get chat_id by messaging your bot, then visit:
+# https://api.telegram.org/bot<TOKEN>/getUpdates
+notifications:
+  telegram:
+    enabled: false
+    bot_token: "YOUR_BOT_TOKEN"
+    chat_id: "YOUR_CHAT_ID"
+  discord:
+    enabled: false
+    webhook_url: ""
