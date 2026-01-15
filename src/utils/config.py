@@ -33,11 +33,17 @@ class AlphaVantageConfig(BaseModel):
     api_key: str = ""
 
 
+class UnusualWhalesConfig(BaseModel):
+    base_url: str = "https://api.unusualwhales.com/api"
+    api_key: str = ""
+
+
 class ApisConfig(BaseModel):
     sec_edgar: SecEdgarConfig = SecEdgarConfig()
     house_stock_watcher: HouseStockWatcherConfig = HouseStockWatcherConfig()
     finnhub: FinnhubConfig = FinnhubConfig()
     alpha_vantage: AlphaVantageConfig = AlphaVantageConfig()
+    unusual_whales: UnusualWhalesConfig = UnusualWhalesConfig()
 
 
 class SignalsConfig(BaseModel):

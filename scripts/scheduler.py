@@ -35,6 +35,11 @@ from src.utils.logger import get_logger
 logger = get_logger(__name__)
 
 
+from src.collectors.market_sentiment import MarketSentimentCollector
+from src.collectors.unusual_whales import UnusualWhalesCollector
+
+# ... imports ...
+
 class SmartMoneyScheduler:
     """Scheduler for automated data collection and alerting."""
 
@@ -48,6 +53,21 @@ class SmartMoneyScheduler:
         self.sec_collector = SecEdgarCollector()
         self.options_collector = OptionsFlowCollector()
         self.btc_collector = BitcoinWhaleCollector()
+        self.sentiment_collector = MarketSentimentCollector()
+        self.unusual_whales_collector = UnusualWhalesCollector()  # NEW
+
+        # Initialize alert system
+        self.telegram = TelegramAlert()
+        self.signal_engine = SignalEngine()
+
+        # Track stats
+        self.stats = {
+            "last_run": None,
+            "congressional_trades": 0,
+            "signals_generated": 0,
+            "alerts_sent": 0,
+            "sentiment_checks": 0,
+        }
 
         # Initialize alert system
         self.telegram = TelegramAlert()
@@ -123,6 +143,44 @@ class SmartMoneyScheduler:
 
         except Exception as e:
             logger.error(f"Error collecting SEC data: {e}")
+
+    def collect_sentiment(self):
+        """Collect market sentiment data."""
+        logger.info("Collecting market sentiment...")
+        try:
+            # 1. Crypto Fear & Greed (General Market Risk Proxy)
+            fng = self.sentiment_collector.get_crypto_fear_greed()
+            if fng:
+                logger.info(f"Crypto Fear & Greed: {fng['value']} ({fng['classification']})")
+                self.stats["sentiment_checks"] += 1
+            
+            # 2. Stock Sentiment (for major indices/tickers)
+            # This consumes API quota, so we limit it.
+            # Maybe check SPY or major tech.
+            spy_sentiment = self.sentiment_collector.get_stock_sentiment("SPY")
+            if spy_sentiment:
+                logger.info(f"SPY Sentiment: {spy_sentiment['sentiment_label']} ({spy_sentiment['sentiment_score']})")
+
+            return fng
+        except Exception as e:
+            logger.error(f"Error collecting sentiment: {e}")
+            return None
+
+    def collect_unusual_whales(self):
+        """Collect data from Unusual Whales."""
+        # Only run if key is configured to avoid log noise
+        if not self.unusual_whales_collector.api_key:
+            return
+
+        logger.info("Collecting Unusual Whales data...")
+        try:
+            trades = self.unusual_whales_collector.get_latest_option_trades(limit=10)
+            if trades:
+                logger.info(f"Unusual Whales: Found {len(trades)} significant option trades")
+                # Here we would normally process/store them or convert to signals
+                # For now just logging availability
+        except Exception as e:
+            logger.error(f"Error collecting Unusual Whales: {e}")
 
     def analyze_and_generate_signals(self, trades):
         """Analyze collected data and generate signals."""
@@ -211,6 +269,8 @@ class SmartMoneyScheduler:
         # 1. Collect data
         trades = self.collect_congressional()
         self.collect_sec_data()
+        self.collect_sentiment()
+        self.collect_unusual_whales()
 
         # 2. Generate signals
         if trades:
@@ -276,6 +336,32 @@ def main():
             logger.info(f"SUCCESS: AAPL P/C Ratio = {pc_ratio}")
         except Exception as e:
             logger.error(f"FAILED: {e}")
+
+        # Test Sentiment
+        logger.info("\n--- Testing Sentiment Collector ---")
+        try:
+            fng = scheduler_instance.sentiment_collector.get_crypto_fear_greed()
+            logger.info(f"SUCCESS: Crypto Fear & Greed = {fng}")
+            
+            # Only test stock sentiment if key is present to avoid error log spam
+            if scheduler_instance.sentiment_collector.av_api_key:
+                stock_sent = scheduler_instance.sentiment_collector.get_stock_sentiment("SPY")
+                logger.info(f"SUCCESS: SPY Sentiment = {stock_sent}")
+            else:
+                logger.info("SKIPPED: Alpha Vantage Key not set")
+        except Exception as e:
+            logger.error(f"FAILED: {e}")
+
+        # Test Unusual Whales
+        logger.info("\n--- Testing Unusual Whales ---")
+        if scheduler_instance.unusual_whales_collector.api_key:
+            try:
+                trades = scheduler_instance.unusual_whales_collector.get_latest_option_trades(limit=1)
+                logger.info(f"SUCCESS: Fetched {len(trades)} trades")
+            except Exception as e:
+                logger.error(f"FAILED: {e}")
+        else:
+            logger.info("SKIPPED: API Key not set")
 
         # Test Telegram
         logger.info("\n--- Testing Telegram ---")

@@ -43,6 +43,12 @@ jobs:
             
           financial_modeling_prep:
             api_key: "${{ secrets.FMP_KEY }}"
+
+          alpha_vantage:
+            api_key: "${{ secrets.ALPHA_VANTAGE_KEY }}"
+
+          unusual_whales:
+            api_key: "${{ secrets.UNUSUAL_WHALES_KEY }}"
             
         notifications:
           telegram:

@@ -23,6 +23,7 @@ class SignalType(Enum):
     INSIDER = "insider"
     CONGRESSIONAL = "congressional"
     OPTIONS_FLOW = "options_flow"
+    SENTIMENT = "sentiment"
     CRYPTO_WHALE = "crypto_whale"
     COMPOSITE = "composite"  # Multiple signals combined
 
