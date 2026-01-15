@@ -217,7 +217,11 @@ class SmartMoneyScheduler:
             signals = self.analyze_and_generate_signals(trades)
 
             # 3. Send alerts for high-confidence signals
+            # 3. Send alerts for high-confidence signals
             self.send_alerts(signals)
+            
+            # 4. Always send a summary so user knows it ran
+            self.send_daily_summary(signals)
 
         logger.info("Collection cycle complete")
         logger.info(f"Stats: {self.stats}")
