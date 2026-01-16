@@ -4,137 +4,83 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Smart Money Flow Tracker - A comprehensive system to track institutional investor movements, insider trading, congressional trades, options flow, and crypto whale activity using free, publicly available data sources to generate investment signals.
+Smart Money Flow Tracker - A system to track institutional investor movements, insider trading, congressional trades, options flow, and crypto whale activity using free, publicly available data sources to generate investment signals.
 
 ## Commands
 
-### Setup
 ```bash
-# Create virtual environment
-python -m venv venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
+# Setup
+python -m venv venv && source venv/bin/activate && pip install -r requirements.txt
 
-# Install dependencies
-pip install -r requirements.txt
-```
-
-### Running the Dashboard
-```bash
+# Dashboard
 streamlit run app.py
-```
 
-### Data Collection
-```bash
-# Collect all data sources
-python scripts/collect_data.py
-
-# Collect specific source
+# Data Collection
+python scripts/collect_data.py                    # All sources
 python scripts/collect_data.py --source congressional
-python scripts/collect_data.py --source sec
-```
 
-### Scheduler (Automated Collection)
-```bash
-# Run scheduler (continuous)
-python scripts/scheduler.py
+# Scheduler
+python scripts/scheduler.py          # Continuous (8:30 AM, 12 PM, 5:30 PM)
+python scripts/scheduler.py --once   # Run once
+python scripts/scheduler.py --test   # Test all collectors
 
-# Run once and exit
-python scripts/scheduler.py --once
-
-# Test all collectors
-python scripts/scheduler.py --test
-```
-
-### Running Tests
-```bash
-pytest tests/
-pytest tests/test_collectors.py -v
+# Tests
+pytest tests/                        # All tests
+pytest tests/test_collectors.py -v   # Single file
+pytest tests/test_collectors.py::test_function -v  # Single test
 ```
 
 ## Architecture
 
+**Data Flow**: Collectors → Repository (SQLite) → SignalEngine → Alerts (Telegram/Discord)
+
 ```
 src/
-├── collectors/              # Data fetchers
-│   ├── sec_edgar.py        # SEC 13F & Form 4 (FREE - data.sec.gov)
-│   ├── congressional.py    # Congress trades (FREE - housestockwatcher.com)
-│   ├── options_flow.py     # Options data (Yahoo Finance, Barchart)
-│   └── crypto_whales.py    # ETH/BTC whale tracking
-├── analyzers/               # Signal generation
-│   ├── signal_engine.py    # Multi-source signal aggregation
-│   └── backtester.py       # Historical performance testing
+├── collectors/           # Data fetchers (each with rate limiting via tenacity)
+│   ├── congressional.py  # House Stock Watcher → Unusual Whales fallback → demo data
+│   ├── sec_edgar.py      # SEC 13F & Form 4 (data.sec.gov)
+│   ├── options_flow.py   # Yahoo Finance (yfinance)
+│   ├── crypto_whales.py  # Blockchain.com & Etherscan
+│   ├── unusual_whales.py # Premium API (optional)
+│   └── market_sentiment.py
+├── analyzers/
+│   ├── signal_engine.py  # Aggregates signals, applies weights, generates TradingSignal
+│   └── backtester.py
 ├── storage/
-│   ├── models.py           # SQLAlchemy ORM (6 tables)
-│   └── repository.py       # Database operations
-├── output/
-│   └── alerts.py           # Telegram & Discord notifications
+│   ├── models.py         # SQLAlchemy ORM: Institution, InstitutionalHolding,
+│   │                     #   InsiderTrade, CongressionalTrade, OptionsFlow, Signal
+│   └── repository.py     # CRUD operations
+├── output/alerts.py      # TelegramAlert, DiscordAlert, AlertMessage
 └── utils/
-    ├── config.py           # Pydantic settings
-    ├── logger.py           # Logging
-    └── rate_limiter.py     # API rate limiting
-```
-
-## Key Data Sources (All Free)
-
-| Source | API | Rate Limit | Data |
-|--------|-----|------------|------|
-| SEC EDGAR | data.sec.gov | 10 req/sec | 13F holdings, Form 4 insider trades |
-| House Stock Watcher | S3 JSON | ~5 req/sec | Congressional trades |
-| Yahoo Finance | yfinance | Unlimited | Options chains, stock prices |
-| Blockchain.com | REST API | ~3 req/sec | Bitcoin large transactions |
-| Etherscan | API | 5 req/sec | Ethereum whale transactions (needs free API key) |
-
-## Database
-
-SQLite by default (`data/smartmoney.db`). Models:
-- `Institution` - Hedge funds, mutual funds
-- `InstitutionalHolding` - 13F positions
-- `InsiderTrade` - Form 4 filings
-- `CongressionalTrade` - STOCK Act disclosures
-- `OptionsFlow` - Unusual options activity
-- `Signal` - Generated trading signals
-
-## Signal Types & Weights
-
-| Signal | Weight | Description |
-|--------|--------|-------------|
-| Institutional Accumulation | 0.9 | Multiple 13F filers adding same position |
-| Insider Cluster Buy | 0.85 | 3+ insiders buying within 30 days |
-| Congressional Trade | 0.6 | Trades by members of Congress |
-| Options Flow | 0.5 | Unusual volume relative to open interest |
-| Cross-Signal Bonus | 1.5x | Multiple signals converging on same ticker |
-
-## Telegram Setup
-
-1. Create bot via @BotFather on Telegram
-2. Get your bot token
-3. Message your bot, then get chat ID from: `https://api.telegram.org/bot<TOKEN>/getUpdates`
-4. Add to `config/settings.yaml`:
-```yaml
-notifications:
-  telegram:
-    enabled: true
-    bot_token: "your-bot-token"
-    chat_id: "your-chat-id"
+    ├── config.py         # Pydantic Settings with YAML + env var loading
+    ├── logger.py
+    └── rate_limiter.py
 ```
 
 ## Configuration
 
-Edit `config/settings.yaml` for:
-- Database URL
-- API keys (Etherscan, Finnhub)
-- Signal weights
-- Alert thresholds
-- Notification settings
+**Primary**: `config/settings.yaml` (copy from `settings.yaml.example`)
 
-## Dashboard Pages
+**Environment Variables** (override YAML, prefix `SMF_`):
+```bash
+SMF_APIS__FINNHUB__API_KEY=your_key
+SMF_APIS__UNUSUAL_WHALES__API_KEY=your_key
+SMF_NOTIFICATIONS__TELEGRAM__BOT_TOKEN=your_token
+SMF_NOTIFICATIONS__TELEGRAM__CHAT_ID=your_chat_id
+```
 
-- **Dashboard** - Overview with quick actions
-- **Congressional Trades** - Filter and analyze Congress member trades
-- **Institutional Holdings** - 13F lookup by CIK
-- **Insider Trades** - Form 4 resources
-- **Options Flow** - Put/call ratio analysis
-- **Crypto Whales** - BTC/ETH large transaction tracking
-- **Signals** - Generated trading signals with alert buttons
-- **Backtesting** - Historical signal performance
-- **Settings** - Configure Telegram, API keys, weights
+Nested keys use double underscore: `SMF_APIS__FINNHUB__API_KEY` maps to `apis.finnhub.api_key`
+
+## Testing
+
+Tests use in-memory SQLite (`sqlite:///:memory:`). Key fixtures in `tests/conftest.py`:
+- `repository` - In-memory Repository instance
+- `db_session` - Database session with automatic cleanup
+- `mock_settings` - Settings with test values
+
+## Key Patterns
+
+- **Collectors** return dataclasses (e.g., `CongressTrade`), converted to SQLAlchemy models for storage
+- **SignalEngine** generates `SignalComponent`s from each source, then `aggregate_signals()` combines them into a `TradingSignal` with confidence scoring
+- **Rate limiting**: Use `RateLimiter` from utils + `tenacity` decorators for retries
+- **Config access**: Import `settings` from `src.utils.config` (global singleton loaded from YAML)
