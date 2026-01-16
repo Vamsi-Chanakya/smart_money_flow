@@ -2,7 +2,7 @@
 
 import os
 from pathlib import Path
-from typing import Any, Union
+from typing import Any, Optional, Union
 
 import yaml
 from pydantic import BaseModel
@@ -124,3 +124,96 @@ def load_settings() -> Settings:
 
 # Global settings instance
 settings = load_settings()
+
+
+# ==================== Watchlist Configuration ====================
+
+class EarningsEventConfig(BaseModel):
+    days_before_alert: int = 7
+
+
+class CongressionalEventConfig(BaseModel):
+    lookback_days: int = 30
+    min_amount: int = 15000
+
+
+class InsiderEventConfig(BaseModel):
+    lookback_days: int = 30
+    min_insiders: int = 1
+    transaction_types: list[str] = ["P", "S"]
+
+
+class OptionsFlowEventConfig(BaseModel):
+    min_volume_oi_ratio: float = 2.0
+    min_premium: int = 50000
+
+
+class WhaleEventConfig(BaseModel):
+    min_value_usd: int = 100000
+
+
+class EventsConfig(BaseModel):
+    earnings: EarningsEventConfig = EarningsEventConfig()
+    congressional_trades: CongressionalEventConfig = CongressionalEventConfig()
+    insider_trades: InsiderEventConfig = InsiderEventConfig()
+    options_flow: OptionsFlowEventConfig = OptionsFlowEventConfig()
+    whale_transactions: WhaleEventConfig = WhaleEventConfig()
+
+
+class StockWatchItem(BaseModel):
+    symbol: str
+    name: Optional[str] = None
+    events: list[str] = ["earnings", "congressional_trades", "insider_trades", "options_flow"]
+
+
+class CryptoWatchItem(BaseModel):
+    symbol: str
+    name: Optional[str] = None
+    events: list[str] = ["whale_transactions", "large_transfers"]
+
+
+class Watchlist(BaseModel):
+    stocks: list[StockWatchItem] = []
+    crypto: list[CryptoWatchItem] = []
+    events: EventsConfig = EventsConfig()
+
+    @property
+    def stock_symbols(self) -> list[str]:
+        """Get list of stock symbols."""
+        return [s.symbol for s in self.stocks]
+
+    @property
+    def crypto_symbols(self) -> list[str]:
+        """Get list of crypto symbols."""
+        return [c.symbol for c in self.crypto]
+
+    def get_stock(self, symbol: str) -> Optional[StockWatchItem]:
+        """Get stock config by symbol."""
+        for stock in self.stocks:
+            if stock.symbol.upper() == symbol.upper():
+                return stock
+        return None
+
+    def get_crypto(self, symbol: str) -> Optional[CryptoWatchItem]:
+        """Get crypto config by symbol."""
+        for crypto in self.crypto:
+            if crypto.symbol.upper() == symbol.upper():
+                return crypto
+        return None
+
+
+def load_watchlist() -> Watchlist:
+    """Load watchlist from config file."""
+    watchlist_path = get_project_root() / "config" / "watchlist.yaml"
+
+    if not watchlist_path.exists():
+        return Watchlist()
+
+    with open(watchlist_path) as f:
+        data = yaml.safe_load(f)
+
+    return Watchlist(**data) if data else Watchlist()
+
+
+# Global watchlist instance
+watchlist = load_watchlist()

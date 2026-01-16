@@ -1,0 +1,49 @@
+# Watchlist Configuration
+# Tickers and crypto to scan for binary events
+
+stocks:
+  - symbol: SMCI
+    name: Super Micro Computer
+    events:
+      - earnings
+      - congressional_trades
+      - insider_trades
+      - options_flow
+
+  - symbol: RZLV
+    name: Rezolve AI
+    events:
+      - earnings
+      - congressional_trades
+      - insider_trades
+      - options_flow
+
+crypto:
+  - symbol: LINK
+    name: Chainlink
+    events:
+      - whale_transactions
+      - large_transfers
+
+# Event scanning configuration
+events:
+  earnings:
+    days_before_alert: 7      # Alert N days before earnings
+
+  congressional_trades:
+    lookback_days: 30         # Scan trades from last N days
+    min_amount: 15000         # Minimum trade amount ($)
+
+  insider_trades:
+    lookback_days: 30
+    min_insiders: 1           # Alert on any insider activity for watchlist
+    transaction_types:
+      - P                     # Purchase
+      - S                     # Sale
+
+  options_flow:
+    min_volume_oi_ratio: 2.0  # Volume/OI ratio threshold
+    min_premium: 50000        # Minimum premium ($)
+
+  whale_transactions:
+    min_value_usd: 100000     # Minimum transaction value
