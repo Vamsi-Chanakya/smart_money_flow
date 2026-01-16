@@ -41,3 +41,9 @@ dist/
 build/
 *.egg-info/
 .env
+
+# Debug/scratch files
+debug_*.py
+test_*.py
+DAILY_UPDATES.md
+scripts/test_*.py
