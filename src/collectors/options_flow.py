@@ -179,7 +179,7 @@ class OptionsFlowCollector:
             return None
 
     def get_options_chain_yahoo(self, ticker: str) -> list[OptionsActivity]:
-        """Get options chain from Yahoo Finance.
+        """Get options chain from Yahoo Finance using yfinance.
 
         Args:
             ticker: Stock ticker symbol
@@ -187,92 +187,80 @@ class OptionsFlowCollector:
         Returns:
             List of options with high volume/OI ratio
         """
-        logger.info(f"Fetching options chain for {ticker} from Yahoo...")
-
-        self.rate_limiter.wait()
-
-        url = f"{self.YAHOO_OPTIONS_URL}/{ticker}"
+        import yfinance as yf
+        
+        logger.info(f"Fetching options chain for {ticker} from Yahoo (yfinance)...")
+        activities = []
 
         try:
-            response = self.session.get(url, timeout=30)
-            response.raise_for_status()
-            data = response.json()
+            tk = yf.Ticker(ticker)
+            expirations = tk.options
+            
+            if not expirations:
+                return []
+                
+            # Check only the nearest expiration for speed
+            nearest_exp = expirations[0]
+            chain = tk.option_chain(nearest_exp)
+            exp_date = datetime.strptime(nearest_exp, "%Y-%m-%d")
+            
+            # Helper to process chain dataframe
+            def process_df(df, option_type):
+                for _, row in df.iterrows():
+                    volume = row.get('volume', 0)
+                    oi = row.get('openInterest', 0)
+                    
+                    if not volume or not oi or oi == 0:
+                        continue
+                        
+                    # Filter for significant activity
+                    if volume < 500: # Minimum volume filter
+                        continue
+                        
+                    vol_oi = volume / oi
+                    if vol_oi < 2.0: # Minimum Vol/OI ratio
+                        continue
+                        
+                    sentiment = "BULLISH" if option_type == "CALL" else "BEARISH"
+                    
+                    activities.append(OptionsActivity(
+                        ticker=ticker,
+                        observed_date=datetime.now(),
+                        expiration_date=exp_date,
+                        strike_price=row.get('strike'),
+                        option_type=option_type,
+                        volume=int(volume),
+                        open_interest=int(oi),
+                        volume_oi_ratio=vol_oi,
+                        implied_volatility=row.get('impliedVolatility'),
+                        last_price=row.get('lastPrice'),
+                        bid=row.get('bid'),
+                        ask=row.get('ask'),
+                        underlying_price=0.0, # yfinance opt chain doesn't give underlying directly in row
+                        sentiment=sentiment,
+                        source="yahoo_yfinance",
+                    ))
+
+            if chain.calls is not None:
+                process_df(chain.calls, "CALL")
+            if chain.puts is not None:
+                process_df(chain.puts, "PUT")
+
         except Exception as e:
             logger.error(f"Error fetching Yahoo options for {ticker}: {e}")
             return []
-
-        return self._parse_yahoo_options(ticker, data)
+            
+        # Sort by volume/OI
+        activities.sort(key=lambda x: x.volume_oi_ratio, reverse=True)
+        return activities[:20]
 
     def _parse_yahoo_options(self, ticker: str, data: dict) -> list[OptionsActivity]:
-        """Parse Yahoo Finance options data."""
-        activities = []
+        # Deprecated
+        return []
 
-        result = data.get("optionChain", {}).get("result", [])
-        if not result:
-            return []
-
-        options_data = result[0]
-        underlying_price = options_data.get("quote", {}).get("regularMarketPrice", 0)
-        expirations = options_data.get("expirationDates", [])
-
-        for option_chain in options_data.get("options", []):
-            exp_timestamp = option_chain.get("expirationDate", 0)
-            exp_date = datetime.fromtimestamp(exp_timestamp) if exp_timestamp else datetime.now()
-
-            # Process calls
-            for call in option_chain.get("calls", []):
-                activity = self._parse_yahoo_option(ticker, call, "CALL", exp_date, underlying_price)
-                if activity and activity.volume_oi_ratio > 2:  # Filter for unusual
-                    activities.append(activity)
-
-            # Process puts
-            for put in option_chain.get("puts", []):
-                activity = self._parse_yahoo_option(ticker, put, "PUT", exp_date, underlying_price)
-                if activity and activity.volume_oi_ratio > 2:
-                    activities.append(activity)
-
-        # Sort by volume/OI ratio
-        activities.sort(key=lambda x: x.volume_oi_ratio, reverse=True)
-
-        return activities[:20]  # Top 20 unusual
-
-    def _parse_yahoo_option(
-        self,
-        ticker: str,
-        option: dict,
-        option_type: str,
-        exp_date: datetime,
-        underlying_price: float,
-    ) -> Optional[OptionsActivity]:
-        """Parse single Yahoo option."""
-        volume = option.get("volume", 0)
-        open_interest = option.get("openInterest", 0)
-
-        if not volume or not open_interest:
-            return None
-
-        vol_oi = volume / open_interest if open_interest > 0 else 0
-
-        sentiment = "BULLISH" if option_type == "CALL" and vol_oi > 2 else \
-                   "BEARISH" if option_type == "PUT" and vol_oi > 2 else "NEUTRAL"
-
-        return OptionsActivity(
-            ticker=ticker,
-            observed_date=datetime.now(),
-            expiration_date=exp_date,
-            strike_price=option.get("strike", 0),
-            option_type=option_type,
-            volume=volume,
-            open_interest=open_interest,
-            volume_oi_ratio=vol_oi,
-            implied_volatility=option.get("impliedVolatility"),
-            last_price=option.get("lastPrice"),
-            bid=option.get("bid"),
-            ask=option.get("ask"),
-            underlying_price=underlying_price,
-            sentiment=sentiment,
-            source="yahoo",
-        )
+    def _parse_yahoo_option(self, *args, **kwargs):
+        # Deprecated
+        return None
 
     def get_unusual_for_tickers(self, tickers: list[str]) -> dict[str, list[OptionsActivity]]:
         """Get unusual options for multiple tickers.

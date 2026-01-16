@@ -14,6 +14,7 @@ from tenacity import retry, stop_after_attempt, wait_exponential
 
 from ..utils.logger import get_logger
 from ..utils.rate_limiter import RateLimiter
+from .unusual_whales import UnusualWhalesCollector
 
 logger = get_logger(__name__)
 
@@ -57,6 +58,7 @@ class CongressionalCollector:
             "User-Agent": "SmartMoneyFlow/1.0",
         })
         self.rate_limiter = RateLimiter(5)  # Be gentle with free API
+        self.uw_collector = UnusualWhalesCollector()
 
     @retry(stop=stop_after_attempt(3), wait=wait_exponential(multiplier=1, min=2, max=10))
     def _get(self, url: str) -> requests.Response:
@@ -69,14 +71,33 @@ class CongressionalCollector:
     # ==================== House Trades ====================
 
     def get_all_house_trades(self) -> list[CongressTrade]:
-        """Get all historical House trading data.
-
-        Returns:
-            List of all House member trades
+        """Get all historical congressional trading data.
+        
+        Priority:
+        1. Unusual Whales API (Best, Real-time)
+        2. House Stock Watcher API (Deprecated)
+        3. Demo Data (Fallback)
         """
-        url = f"{self.HOUSE_API_BASE}/all_transactions.json"
-        logger.info("Fetching all House trades")
+        # 1. Try Unusual Whales
+        if self.uw_collector.api_key:
+            try:
+                uw_data = self.uw_collector.get_congress_trades(limit=100)
+                if uw_data:
+                    trades = []
+                    for item in uw_data:
+                        trade = self._parse_uw_trade(item)
+                        if trade:
+                            trades.append(trade)
+                    
+                    if trades:
+                        logger.info(f"Fetched {len(trades)} trades from Unusual Whales")
+                        return trades
+            except Exception as e:
+                logger.warning(f"Failed to fetch from Unusual Whales: {e}")
 
+        # 2. Try House Stock Watcher (Legacy)
+        url = f"{self.HOUSE_API_BASE}/all_transactions.json"
+        
         try:
             response = self._get(url)
             data = response.json()
@@ -228,6 +249,38 @@ class CongressionalCollector:
             )
         except Exception as e:
             logger.warning(f"Error parsing House trade: {e}")
+            return None
+
+    def _parse_uw_trade(self, item: dict) -> Optional[CongressTrade]:
+        """Parse trade from Unusual Whales format."""
+        try:
+            # Report Date -> Disclosure Date
+            # Transaction Date -> Trade Date
+            trade_date = self._parse_date(item.get("transaction_date"))
+            disclosure_date = self._parse_date(item.get("report_date")) or datetime.now()
+            
+            if not trade_date:
+                return None
+
+            return CongressTrade(
+                disclosure_id=f"uw_{item.get('id', '')}",
+                representative=item.get("politician", "Unknown"),
+                chamber=item.get("chamber", "Congress"),
+                party=item.get("party"),
+                state=item.get("state"),
+                district=item.get("district"),
+                ticker=item.get("ticker"),
+                asset_description=item.get("description", ""),
+                asset_type="Stock", 
+                transaction_type=item.get("transaction_type", "").lower(),
+                trade_date=trade_date,
+                disclosure_date=disclosure_date,
+                amount_min=None, 
+                amount_max=None,
+                amount_text=item.get("amount"), # UW might give text or number
+                owner=item.get("owner"),
+            )
+        except Exception:
             return None
 
     def _parse_date(self, date_str: str) -> Optional[datetime]:

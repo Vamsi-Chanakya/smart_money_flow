@@ -87,3 +87,25 @@ class UnusualWhalesCollector:
         except:
             pass
         return None
+
+    def get_congress_trades(self, limit: int = 50) -> List[Dict[str, Any]]:
+        """Get recent congressional trades.
+        
+        Note: This is the best modern source if the key enables it.
+        """
+        if not self.api_key:
+            return []
+
+        self.rate_limiter.wait()
+        endpoint = f"{self.base_url}/congress/recent-reported-trades" # Based on screenshot "Recent Reported Congress Trades"
+        params = {"limit": limit}
+
+        try:
+            response = self.session.get(endpoint, params=params, timeout=10)
+            if response.status_code == 200:
+                data = response.json()
+                return data.get("data", [])
+        except Exception as e:
+            logger.error(f"Error fetching UW Congress trades: {e}")
+        
+        return []

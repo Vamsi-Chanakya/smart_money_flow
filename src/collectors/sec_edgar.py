@@ -314,9 +314,50 @@ class SecEdgarCollector:
 
     def _parse_form4_feed(self, content: str) -> list[Form4Filing]:
         """Parse Form 4 RSS/Atom feed."""
-        # For now, return empty list - full implementation would parse the feed
-        # and then fetch each filing's details
-        return []
+        filings = []
+        try:
+            # Remove namespace for easier parsing
+            content = re.sub(r'\sxmlns="[^"]+"', '', content)
+            root = ET.fromstring(content)
+            
+            entries = root.findall("entry")
+            logger.info(f"Found {len(entries)} entries in RSS feed")
+            
+            count = 0
+            for entry in entries:
+                # Title format: "4 - Company Name (CIK) (Issuer)"
+                title = entry.findtext("title", "")
+                if not title.startswith("4 ") and not title.startswith("4/A"):
+                    continue
+                
+                link = entry.find("link")
+                href = link.get("href") if link is not None else ""
+                
+                # Extract CIK and Accession from URL
+                # https://www.sec.gov/Archives/edgar/data/1067983/000106798324000001/0001067983-24-000001-index.htm
+                # We need CIK and Accession
+                parts = href.split('/')
+                if len(parts) >= 8:
+                    cik = parts[6]
+                    accession = parts[7].replace('-index.htm', '')
+                    
+                    # Fetch full details
+                    # Rate limit is 10/sec, so this involves I/O
+                    try:
+                        details = self.get_form4_details(cik, accession)
+                        if details:
+                            filings.append(details)
+                            count += 1
+                    except Exception as e:
+                        logger.warning(f"Failed to fetch details for {accession}: {e}")
+                
+                if count >= 30:  # Limit to 30 most recent to keep refresh fast
+                    break
+                    
+        except Exception as e:
+            logger.error(f"Error parsing Atom feed: {e}")
+            
+        return filings
 
     def get_form4_details(self, cik: str, accession: str) -> Optional[Form4Filing]:
         """Get detailed Form 4 data from SEC.
