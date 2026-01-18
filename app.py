@@ -293,7 +293,8 @@ def refresh_all_data():
     # Curated list of high-interest tickers to scan
     SCAN_TICKERS = [
         "SPY", "QQQ", "IWM", "AAPL", "NVDA", "TSLA", "AMD", "MSFT", "GOOGL", "AMZN", 
-        "META", "NFLX", "COIN", "MARA", "PLTR", "SOFI", "GME", "AMC", "HOOD", "RIVN"
+        "META", "NFLX", "COIN", "MARA", "PLTR", "SOFI", "GME", "AMC", "HOOD", "RIVN",
+        "EQPT", "BTGO"
     ]
     
     all_options = []

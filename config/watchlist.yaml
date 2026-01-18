@@ -18,6 +18,22 @@ stocks:
       - insider_trades
       - options_flow
 
+  - symbol: EQPT
+    name: EquipmentShare
+    events:
+      - earnings
+      - congressional_trades
+      - insider_trades
+      - options_flow
+
+  - symbol: BTGO
+    name: BitGo
+    events:
+      - earnings
+      - congressional_trades
+      - insider_trades
+      - options_flow
+
 crypto:
   - symbol: LINK
     name: Chainlink
