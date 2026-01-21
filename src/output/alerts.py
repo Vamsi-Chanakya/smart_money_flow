@@ -202,17 +202,30 @@ class TelegramAlert(AlertChannel):
         return text.strip()
 
     def send_daily_summary(self, signals: list[TradingSignal], stats: dict) -> bool:
-        """Send daily summary message."""
+        """Send daily summary message.
+
+        Only sends if there's meaningful data to report (signals, news, or data points).
+        """
         if not self.enabled:
+            return False
+
+        # Extract counts - support both old and new stat key names
+        active_signals = len(signals)
+        new_today = stats.get('new_signals', stats.get('signals_generated', 0))
+        data_points = stats.get('data_points', stats.get('congressional_trades', 0))
+
+        # Skip if nothing meaningful to report
+        if active_signals == 0 and new_today == 0 and data_points == 0:
+            logger.info("No meaningful data to report - skipping daily summary")
             return False
 
         text = f"""
 📊 *DAILY SMART MONEY SUMMARY*
 {datetime.now().strftime('%Y-%m-%d')}
 
-*Active Signals:* {len(signals)}
-*New Today:* {stats.get('new_signals', 0)}
-*Data Points Collected:* {stats.get('data_points', 0)}
+*Active Signals:* {active_signals}
+*New Today:* {new_today}
+*Data Points Collected:* {data_points}
 
 """
 

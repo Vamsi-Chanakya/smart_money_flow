@@ -19,6 +19,11 @@ streamlit run app.py
 python scripts/collect_data.py                    # All sources
 python scripts/collect_data.py --source congressional
 
+# Watchlist Scanner (stateless, for GitHub Actions)
+python scripts/scan_watchlist.py              # Scan all tickers and send alerts
+python scripts/scan_watchlist.py --dry-run    # Scan without sending alerts
+python scripts/scan_watchlist.py --ticker SMCI # Scan single ticker
+
 # Scheduler
 python scripts/scheduler.py          # Continuous (8:30 AM, 12 PM, 5:30 PM)
 python scripts/scheduler.py --once   # Run once
@@ -61,6 +66,8 @@ src/
 
 **Primary**: `config/settings.yaml` (copy from `settings.yaml.example`)
 
+**Watchlist**: `config/watchlist.yaml` - Tickers to scan with per-ticker event configuration
+
 **Environment Variables** (override YAML, prefix `SMF_`):
 ```bash
 SMF_APIS__FINNHUB__API_KEY=your_key
@@ -83,4 +90,13 @@ Tests use in-memory SQLite (`sqlite:///:memory:`). Key fixtures in `tests/confte
 - **Collectors** return dataclasses (e.g., `CongressTrade`), converted to SQLAlchemy models for storage
 - **SignalEngine** generates `SignalComponent`s from each source, then `aggregate_signals()` combines them into a `TradingSignal` with confidence scoring
 - **Rate limiting**: Use `RateLimiter` from utils + `tenacity` decorators for retries
-- **Config access**: Import `settings` from `src.utils.config` (global singleton loaded from YAML)
+- **Config access**: Import `settings` and `watchlist` from `src.utils.config` (global singletons loaded from YAML)
+- **Scripts path setup**: Scripts add `sys.path.insert(0, str(Path(__file__).parent.parent))` to import from `src/`
+
+## GitHub Actions
+
+Two workflows in `.github/workflows/`:
+- `alerts.yml` - Scheduled alerts (Mon-Fri 8:30 AM, 12 PM, 5:30 PM CST) via `scheduler.py --once`
+- `scan-watchlist.yml` - Market open/close scans (9:30 AM, 4 PM ET) via `scan_watchlist.py`
+
+Both use `workflow_dispatch` for manual triggers. Required secrets: `TELEGRAM_BOT_TOKEN`, `TELEGRAM_CHAT_ID`
