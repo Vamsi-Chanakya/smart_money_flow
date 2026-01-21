@@ -69,18 +69,6 @@ class SmartMoneyScheduler:
             "sentiment_checks": 0,
         }
 
-        # Initialize alert system
-        self.telegram = TelegramAlert()
-        self.signal_engine = SignalEngine()
-
-        # Track stats
-        self.stats = {
-            "last_run": None,
-            "congressional_trades": 0,
-            "signals_generated": 0,
-            "alerts_sent": 0,
-        }
-
     def collect_congressional(self):
         """Collect congressional trading data."""
         logger.info("Collecting congressional trades...")
