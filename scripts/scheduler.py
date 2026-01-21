@@ -235,13 +235,13 @@ class SmartMoneyScheduler:
         self.stats["alerts_sent"] = alerts_sent
         logger.info(f"Sent {alerts_sent} alerts")
 
-    def send_daily_summary(self, signals):
+    def send_daily_summary(self, signals, trades=None):
         """Send daily summary via Telegram."""
         if not self.telegram.enabled:
             return
 
         try:
-            self.telegram.send_daily_summary(signals, self.stats)
+            self.telegram.send_daily_summary(signals, self.stats, trades)
             logger.info("Sent daily summary")
         except Exception as e:
             logger.error(f"Error sending daily summary: {e}")
@@ -265,11 +265,10 @@ class SmartMoneyScheduler:
             signals = self.analyze_and_generate_signals(trades)
 
             # 3. Send alerts for high-confidence signals
-            # 3. Send alerts for high-confidence signals
             self.send_alerts(signals)
-            
-            # 4. Always send a summary so user knows it ran
-            self.send_daily_summary(signals)
+
+            # 4. Send summary with trade details
+            self.send_daily_summary(signals, trades)
 
         logger.info("Collection cycle complete")
         logger.info(f"Stats: {self.stats}")
@@ -287,7 +286,7 @@ class SmartMoneyScheduler:
         if trades:
             signals = self.analyze_and_generate_signals(trades)
             self.send_alerts(signals)
-            self.send_daily_summary(signals)
+            self.send_daily_summary(signals, trades)
 
 
 def main():
